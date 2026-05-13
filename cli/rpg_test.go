@@ -239,3 +239,50 @@ func TestRunRPGExplore_json_should_return_neighborhood(t *testing.T) {
 		t.Fatalf("expected one invokes edge, got %+v", decoded.Edges)
 	}
 }
+
+func TestRootCommand_should_include_rpg_command(t *testing.T) {
+	cmd, _, err := rootCmd.Find([]string{"rpg"})
+	if err != nil {
+		t.Fatalf("root command did not find rpg: %v", err)
+	}
+	if cmd == nil || cmd.Name() != "rpg" {
+		t.Fatalf("expected rpg command, got %#v", cmd)
+	}
+}
+
+func TestRunRPGExplore_should_reject_invalid_edge_type(t *testing.T) {
+	oldEdgeTypes := rpgExploreEdgeTypes
+	oldDirection := rpgExploreDirection
+	defer func() {
+		rpgExploreEdgeTypes = oldEdgeTypes
+		rpgExploreDirection = oldDirection
+	}()
+
+	rpgExploreDirection = "both"
+	rpgExploreEdgeTypes = "bogus"
+	err := runRPGExplore(nil, []string{"sym:missing"})
+	if err == nil {
+		t.Fatal("expected invalid edge type to fail")
+	}
+	if !strings.Contains(err.Error(), "invalid edge type: bogus") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadLocalRPG_should_report_disabled_or_empty_index(t *testing.T) {
+	projectRoot := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.RPG.Enabled = false
+	if err := cfg.Save(projectRoot); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+	withWorkingDir(t, projectRoot)
+
+	store, qe, err := loadLocalRPG(context.Background())
+	if store != nil || qe != nil {
+		t.Fatalf("expected nil store and query engine when RPG disabled")
+	}
+	if err == nil || !strings.Contains(err.Error(), "RPG is not enabled or index is empty") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

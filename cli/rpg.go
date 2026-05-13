@@ -27,6 +27,58 @@ var (
 	rpgExploreLimit     int
 )
 
+var rpgCmd = &cobra.Command{
+	Use:   "rpg <subcommand>",
+	Short: "Search and explore the Repository Planning Graph",
+	Long: `Search and explore the Repository Planning Graph (RPG).
+
+The RPG maps code entities to feature hierarchy nodes and dependency edges.
+Use these commands when you need semantic feature context beyond vector search.`,
+}
+
+var rpgSearchCmd = &cobra.Command{
+	Use:   "search <query>",
+	Short: "Search RPG nodes by feature semantics",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runRPGSearch,
+}
+
+var rpgFetchCmd = &cobra.Command{
+	Use:   "fetch <node-id>",
+	Short: "Fetch hierarchy and edge context for an RPG node",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runRPGFetch,
+}
+
+var rpgExploreCmd = &cobra.Command{
+	Use:   "explore <start-node-id>",
+	Short: "Traverse an RPG graph neighborhood",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runRPGExplore,
+}
+
+func init() {
+	for _, cmd := range []*cobra.Command{rpgSearchCmd, rpgFetchCmd, rpgExploreCmd} {
+		cmd.Flags().BoolVar(&rpgJSON, "json", false, "Output results in JSON format")
+		cmd.Flags().BoolVarP(&rpgTOON, "toon", "t", false, "Output results in TOON format (token-efficient for AI agents)")
+		cmd.MarkFlagsMutuallyExclusive("json", "toon")
+	}
+
+	rpgSearchCmd.Flags().StringVar(&rpgSearchScope, "scope", "", "Area/category path to narrow search, such as 'cli' or 'rpg/query'")
+	rpgSearchCmd.Flags().StringVar(&rpgSearchKinds, "kinds", "", "Comma-separated node kinds: area, category, subcategory, file, symbol, chunk")
+	rpgSearchCmd.Flags().IntVarP(&rpgSearchLimit, "limit", "n", 10, "Maximum number of results to return")
+
+	rpgExploreCmd.Flags().StringVar(&rpgExploreDirection, "direction", "both", "Traversal direction: forward, reverse, or both")
+	rpgExploreCmd.Flags().IntVarP(&rpgExploreDepth, "depth", "d", 2, "Maximum BFS traversal depth")
+	rpgExploreCmd.Flags().StringVar(&rpgExploreEdgeTypes, "edge-types", "", "Comma-separated edge types: feature_parent, contains, invokes, imports, maps_to_chunk, semantic_sim")
+	rpgExploreCmd.Flags().IntVarP(&rpgExploreLimit, "limit", "n", 100, "Maximum nodes to return")
+
+	rpgCmd.AddCommand(rpgSearchCmd)
+	rpgCmd.AddCommand(rpgFetchCmd)
+	rpgCmd.AddCommand(rpgExploreCmd)
+	rootCmd.AddCommand(rpgCmd)
+}
+
 func parseRPGNodeKinds(kindsStr string) ([]rpg.NodeKind, error) {
 	if strings.TrimSpace(kindsStr) == "" {
 		return nil, nil
