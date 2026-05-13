@@ -149,3 +149,93 @@ func TestRunRPGSearch_json_should_return_matching_nodes(t *testing.T) {
 		t.Fatalf("feature path = %q, want cli", decoded[0].FeaturePath)
 	}
 }
+
+func TestRunRPGFetch_json_should_return_node_context(t *testing.T) {
+	projectRoot := writeTestRPGProject(t)
+	withWorkingDir(t, projectRoot)
+
+	oldJSON := rpgJSON
+	oldTOON := rpgTOON
+	defer func() { rpgJSON = oldJSON; rpgTOON = oldTOON }()
+	rpgJSON = true
+	rpgTOON = false
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := runRPGFetch(nil, []string{"sym:cli/search.go:runSearch"})
+	_ = w.Close()
+	os.Stdout = oldStdout
+	if err != nil {
+		t.Fatalf("runRPGFetch failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	var decoded rpg.FetchNodeResult
+	if err := json.Unmarshal(buf.Bytes(), &decoded); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, buf.String())
+	}
+	if decoded.Node == nil || decoded.Node.SymbolName != "runSearch" {
+		t.Fatalf("expected runSearch node, got %+v", decoded.Node)
+	}
+	if decoded.FeaturePath != "cli" {
+		t.Fatalf("feature path = %q, want cli", decoded.FeaturePath)
+	}
+	if len(decoded.Incoming) == 0 || len(decoded.Outgoing) == 0 {
+		t.Fatalf("expected incoming and outgoing edges, got %d/%d", len(decoded.Incoming), len(decoded.Outgoing))
+	}
+}
+
+func TestRunRPGExplore_json_should_return_neighborhood(t *testing.T) {
+	projectRoot := writeTestRPGProject(t)
+	withWorkingDir(t, projectRoot)
+
+	oldJSON := rpgJSON
+	oldTOON := rpgTOON
+	oldDirection := rpgExploreDirection
+	oldDepth := rpgExploreDepth
+	oldEdgeTypes := rpgExploreEdgeTypes
+	oldLimit := rpgExploreLimit
+	defer func() {
+		rpgJSON = oldJSON
+		rpgTOON = oldTOON
+		rpgExploreDirection = oldDirection
+		rpgExploreDepth = oldDepth
+		rpgExploreEdgeTypes = oldEdgeTypes
+		rpgExploreLimit = oldLimit
+	}()
+
+	rpgJSON = true
+	rpgTOON = false
+	rpgExploreDirection = "forward"
+	rpgExploreDepth = 1
+	rpgExploreEdgeTypes = "invokes"
+	rpgExploreLimit = 10
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := runRPGExplore(nil, []string{"sym:cli/search.go:runSearch"})
+	_ = w.Close()
+	os.Stdout = oldStdout
+	if err != nil {
+		t.Fatalf("runRPGExplore failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	var decoded rpg.ExploreResult
+	if err := json.Unmarshal(buf.Bytes(), &decoded); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, buf.String())
+	}
+	if decoded.StartNode == nil || decoded.StartNode.SymbolName != "runSearch" {
+		t.Fatalf("expected runSearch start node, got %+v", decoded.StartNode)
+	}
+	if _, ok := decoded.Nodes["sym:cli/search.go:printSearch"]; !ok {
+		t.Fatalf("expected explored graph to include printSearch, got keys %+v", decoded.Nodes)
+	}
+	if len(decoded.Edges) != 1 || decoded.Edges[0].Type != rpg.EdgeInvokes {
+		t.Fatalf("expected one invokes edge, got %+v", decoded.Edges)
+	}
+}

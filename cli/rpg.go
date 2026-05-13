@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/alpkeskin/gotoon"
@@ -166,6 +167,115 @@ func runRPGSearch(cmd *cobra.Command, args []string) error {
 		return outputRPGStructured(results)
 	}
 	return displayRPGSearchResults(results)
+}
+
+func runRPGFetch(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	store, qe, err := loadLocalRPG(ctx)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	result, err := qe.FetchNode(ctx, rpg.FetchNodeRequest{NodeID: args[0]})
+	if err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
+	if result == nil {
+		return fmt.Errorf("node not found: %s", args[0])
+	}
+	if rpgJSON || rpgTOON {
+		return outputRPGStructured(result)
+	}
+	return displayRPGFetchResult(result)
+}
+
+func displayRPGFetchResult(result *rpg.FetchNodeResult) error {
+	node := result.Node
+	fmt.Printf("Node: %s\n", node.ID)
+	fmt.Printf("Kind: %s\n", node.Kind)
+	if node.SymbolName != "" {
+		fmt.Printf("Symbol: %s\n", node.SymbolName)
+	}
+	if node.Feature != "" {
+		fmt.Printf("Feature: %s\n", node.Feature)
+	}
+	if result.FeaturePath != "" {
+		fmt.Printf("Feature path: %s\n", result.FeaturePath)
+	}
+	if node.Path != "" {
+		fmt.Printf("Path: %s", node.Path)
+		if node.StartLine > 0 {
+			fmt.Printf(":%d", node.StartLine)
+		}
+		fmt.Println()
+	}
+	fmt.Printf("Parents: %d\n", len(result.Parents))
+	fmt.Printf("Children: %d\n", len(result.Children))
+	fmt.Printf("Incoming edges: %d\n", len(result.Incoming))
+	fmt.Printf("Outgoing edges: %d\n", len(result.Outgoing))
+	if result.CodePreview != "" {
+		fmt.Println("\nCode preview:")
+		fmt.Println(result.CodePreview)
+	}
+	return nil
+}
+
+func runRPGExplore(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	if err := validateRPGDirection(rpgExploreDirection); err != nil {
+		return err
+	}
+	edgeTypes, err := parseRPGEdgeTypes(rpgExploreEdgeTypes)
+	if err != nil {
+		return err
+	}
+	store, qe, err := loadLocalRPG(ctx)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	result, err := qe.Explore(ctx, rpg.ExploreRequest{
+		StartNodeID: args[0],
+		Direction:   rpgExploreDirection,
+		Depth:       rpgExploreDepth,
+		EdgeTypes:   edgeTypes,
+		Limit:       rpgExploreLimit,
+	})
+	if err != nil {
+		return fmt.Errorf("explore failed: %w", err)
+	}
+	if result == nil {
+		return fmt.Errorf("start node not found: %s", args[0])
+	}
+	if rpgJSON || rpgTOON {
+		return outputRPGStructured(result)
+	}
+	return displayRPGExploreResult(result)
+}
+
+func displayRPGExploreResult(result *rpg.ExploreResult) error {
+	fmt.Printf("Start: %s\n", result.StartNode.ID)
+	fmt.Printf("Depth reached: %d\n", result.Depth)
+	fmt.Printf("Nodes: %d\n", len(result.Nodes))
+	fmt.Printf("Edges: %d\n", len(result.Edges))
+	fmt.Println(strings.Repeat("-", 60))
+
+	ids := make([]string, 0, len(result.Nodes))
+	for id := range result.Nodes {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		node := result.Nodes[id]
+		label := node.Feature
+		if node.SymbolName != "" {
+			label = node.SymbolName
+		}
+		fmt.Printf("%s (%s) %s\n", node.ID, node.Kind, label)
+	}
+	return nil
 }
 
 func displayRPGSearchResults(results []rpg.SearchNodeResult) error {
