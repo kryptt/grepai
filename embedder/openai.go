@@ -98,6 +98,26 @@ func WithOpenAIRetryPolicy(policy RetryPolicy) OpenAIOption {
 	}
 }
 
+// WithOpenAITimeout overrides the HTTP client timeout for embedding requests.
+// Values <= 0 are ignored, preserving the default.
+func WithOpenAITimeout(d time.Duration) OpenAIOption {
+	return func(e *OpenAIEmbedder) {
+		if d > 0 && e.client != nil {
+			e.client.Timeout = d
+		}
+	}
+}
+
+// WithOpenAIMaxRetries sets the maximum retry attempts on the embedder's
+// retry policy. Values <= 0 are ignored, preserving the default.
+func WithOpenAIMaxRetries(n int) OpenAIOption {
+	return func(e *OpenAIEmbedder) {
+		if n > 0 {
+			e.retryPolicy.MaxAttempts = n
+		}
+	}
+}
+
 // WithOpenAITPMLimit sets the tokens-per-minute limit for proactive rate limiting.
 // When set > 0, the embedder will pace requests to stay within this limit.
 // Default: 0 (disabled). OpenAI Tier 1 limit is 1,000,000 TPM for embeddings.
