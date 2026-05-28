@@ -203,6 +203,12 @@ type QdrantConfig struct {
 type ChunkingConfig struct {
 	Size    int `yaml:"size"`
 	Overlap int `yaml:"overlap"`
+	// CustomExtensions extends the built-in SupportedExtensions list with
+	// additional file extensions to index (e.g. [".tengo", ".el"]). Each
+	// entry must include the leading dot and is matched case-insensitively.
+	// Binary detection (UTF-8 + null-byte check) still applies, so adding
+	// a binary extension here is safe.
+	CustomExtensions []string `yaml:"custom_extensions,omitempty"`
 }
 
 func DefaultStoreForBackend(backend string) StoreConfig {
