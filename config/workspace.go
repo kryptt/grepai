@@ -25,6 +25,10 @@ type Workspace struct {
 	Name     string         `yaml:"name"`
 	Store    StoreConfig    `yaml:"store"`
 	Embedder EmbedderConfig `yaml:"embedder"`
+	// Chunking provides workspace-level defaults. Currently only
+	// CustomExtensions is consumed; Size/Overlap are taken from the
+	// per-project config.
+	Chunking ChunkingConfig `yaml:"chunking,omitempty"`
 	// LocalStateDir relocates each project's per-project local state
 	// (symbol index, RPG index, …) from `<projectRoot>/.grepai/` to a
 	// path under this directory. Use when a project root is read-only
