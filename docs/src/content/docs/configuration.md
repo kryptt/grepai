@@ -53,6 +53,13 @@ chunking:
   size: 512
   # Overlap between chunks (for context continuity)
   overlap: 50
+  # Optional: index extra extensions beyond the built-in supported set.
+  # Entries must include the leading dot, are matched case-insensitively,
+  # and still go through the binary-file and minified-file filters.
+  # Examples: ".tengo" (Tengo scripts), ".el" (Emacs Lisp), ".prisma".
+  # custom_extensions:
+  #   - .tengo
+  #   - .prisma
 
 # File watching configuration
 watch:
