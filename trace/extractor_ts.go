@@ -7,13 +7,6 @@ import (
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/smacker/go-tree-sitter/csharp"
-	"github.com/smacker/go-tree-sitter/golang"
-	"github.com/smacker/go-tree-sitter/javascript"
-	"github.com/smacker/go-tree-sitter/php"
-	"github.com/smacker/go-tree-sitter/python"
-	"github.com/smacker/go-tree-sitter/typescript/typescript"
-	"github.com/yoanbernabeu/grepai/fsharp"
 )
 
 // TreeSitterExtractor implements SymbolExtractor using tree-sitter AST parsing.
@@ -21,32 +14,18 @@ type TreeSitterExtractor struct {
 	parsers map[string]*sitter.Parser
 }
 
-// NewTreeSitterExtractor creates a new tree-sitter based extractor.
+// NewTreeSitterExtractor creates a new tree-sitter based extractor. It
+// initializes one parser per entry in treeSitterLanguages — the single
+// registry that languages.go also exposes via HasTreeSitterGrammar.
 func NewTreeSitterExtractor() (*TreeSitterExtractor, error) {
 	ext := &TreeSitterExtractor{
-		parsers: make(map[string]*sitter.Parser),
+		parsers: make(map[string]*sitter.Parser, len(treeSitterLanguages)),
 	}
-
-	languages := map[string]*sitter.Language{
-		".go":  golang.GetLanguage(),
-		".js":  javascript.GetLanguage(),
-		".jsx": javascript.GetLanguage(),
-		".ts":  typescript.GetLanguage(),
-		".tsx": typescript.GetLanguage(),
-		".py":  python.GetLanguage(),
-		".php": php.GetLanguage(),
-		".cs":  csharp.GetLanguage(),
-		".fs":  fsharp.GetLanguage(),
-		".fsx": fsharp.GetLanguage(),
-		".fsi": fsharp.GetLanguage(),
-	}
-
-	for extension, lang := range languages {
+	for extension, getLanguage := range treeSitterLanguages {
 		parser := sitter.NewParser()
-		parser.SetLanguage(lang)
+		parser.SetLanguage(getLanguage())
 		ext.parsers[extension] = parser
 	}
-
 	return ext, nil
 }
 

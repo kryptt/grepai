@@ -6,22 +6,28 @@ import (
 	"testing"
 )
 
-// TestParseMode covers the user-input normalization path.
+// TestParseMode covers the user-input normalization path. ParseMode is
+// pure: it never logs, and returns a recognized-flag so the caller can
+// surface an unknown-input warning where it belongs (typically the CLI).
 func TestParseMode(t *testing.T) {
 	for _, tc := range []struct {
-		in   string
-		want Mode
+		in       string
+		want     Mode
+		wantOK   bool
+		wantName string
 	}{
-		{"", ModeAuto},
-		{"auto", ModeAuto},
-		{"AUTO", ModeAuto},
-		{"  Auto  ", ModeAuto},
-		{"fast", ModeFast},
-		{"precise", ModePrecise},
-		{"garbage", ModeAuto}, // falls back with a warning
+		{"", ModeAuto, true, "empty"},
+		{"auto", ModeAuto, true, "lower"},
+		{"AUTO", ModeAuto, true, "upper"},
+		{"  Auto  ", ModeAuto, true, "whitespace"},
+		{"fast", ModeFast, true, "fast"},
+		{"precise", ModePrecise, true, "precise"},
+		{"garbage", ModeAuto, false, "unknown falls back"},
 	} {
-		if got := ParseMode(tc.in); got != tc.want {
-			t.Errorf("ParseMode(%q): got %q, want %q", tc.in, got, tc.want)
+		got, ok := ParseMode(tc.in)
+		if got != tc.want || ok != tc.wantOK {
+			t.Errorf("ParseMode(%q) [%s]: got (%q, %v), want (%q, %v)",
+				tc.in, tc.wantName, got, ok, tc.want, tc.wantOK)
 		}
 	}
 }
@@ -30,10 +36,7 @@ func TestParseMode(t *testing.T) {
 // extensions through the tree-sitter extractor and everything else through
 // the regex extractor.
 func TestCompound_AutoDispatch(t *testing.T) {
-	e, err := NewCompoundExtractor(ModeAuto)
-	if err != nil {
-		t.Fatalf("NewCompoundExtractor: %v", err)
-	}
+	e := NewCompoundExtractor(ModeAuto)
 
 	// A .go file has a tree-sitter grammar.
 	ex, err := e.route("main.go")
@@ -66,10 +69,7 @@ func TestCompound_AutoDispatch(t *testing.T) {
 
 // TestCompound_FastDispatch forces every file through the regex extractor.
 func TestCompound_FastDispatch(t *testing.T) {
-	e, err := NewCompoundExtractor(ModeFast)
-	if err != nil {
-		t.Fatalf("NewCompoundExtractor: %v", err)
-	}
+	e := NewCompoundExtractor(ModeFast)
 	for _, path := range []string{"main.go", "app.py", "script.lua", "data.xyz"} {
 		ex, err := e.route(path)
 		if err != nil {
@@ -84,24 +84,100 @@ func TestCompound_FastDispatch(t *testing.T) {
 // TestCompound_PreciseDispatch routes everything through tree-sitter and
 // errors out for files whose extension has no grammar.
 func TestCompound_PreciseDispatch(t *testing.T) {
-	e, err := NewCompoundExtractor(ModePrecise)
-	if err != nil {
-		t.Fatalf("NewCompoundExtractor: %v", err)
-	}
+	e := NewCompoundExtractor(ModePrecise)
 
 	// Tree-sitter-backed: routes successfully.
 	if _, err := e.route("main.go"); err != nil {
 		t.Errorf("route(.go) under ModePrecise: unexpected error %v", err)
 	}
 
-	// No grammar: must produce a descriptive error referencing the path so
-	// downstream tooling can tell the user what to do.
-	_, err = e.route("script.lua")
+	// No grammar: must produce a descriptive error referencing the
+	// extension and file so callers can surface it to the user.
+	_, err := e.route("script.lua")
 	if err == nil {
 		t.Fatalf("route(.lua) under ModePrecise: expected error, got nil")
 	}
 	if !strings.Contains(err.Error(), "precise") || !strings.Contains(err.Error(), ".lua") {
-		t.Errorf("error message should reference --mode precise and the extension; got %q", err.Error())
+		t.Errorf("error message should reference precise mode and the extension; got %q", err.Error())
+	}
+}
+
+// TestCompound_FastMode_NoTreeSitterAllocation confirms that ModeFast
+// never materializes the tree-sitter extractor — the laziness contract.
+func TestCompound_FastMode_NoTreeSitterAllocation(t *testing.T) {
+	e := NewCompoundExtractor(ModeFast)
+	if e.ts != nil {
+		t.Error("ModeFast: tree-sitter extractor allocated at construction; expected lazy")
+	}
+	// Route several supported and unsupported extensions; all should go to
+	// regex, none should trigger TS lazy init.
+	for _, path := range []string{"main.go", "app.py", "script.lua", "data.xyz"} {
+		if _, err := e.route(path); err != nil {
+			t.Fatalf("route(%s): %v", path, err)
+		}
+	}
+	if e.ts != nil {
+		t.Error("ModeFast: tree-sitter extractor allocated after routing; expected never")
+	}
+}
+
+// TestCompound_AutoMode_LazyTreeSitter confirms that ModeAuto defers
+// tree-sitter construction until the first supported file lands.
+func TestCompound_AutoMode_LazyTreeSitter(t *testing.T) {
+	e := NewCompoundExtractor(ModeAuto)
+	if e.ts != nil {
+		t.Error("ModeAuto: tree-sitter extractor allocated at construction; expected lazy")
+	}
+	// Routing an unsupported extension still doesn't allocate the TS path.
+	if _, err := e.route("script.lua"); err != nil {
+		t.Fatalf("route(.lua): %v", err)
+	}
+	if e.ts != nil {
+		t.Error("ModeAuto: routing an unsupported extension allocated tree-sitter unnecessarily")
+	}
+	// First supported file: TS is now built.
+	if _, err := e.route("main.go"); err != nil {
+		t.Fatalf("route(.go): %v", err)
+	}
+	if e.ts == nil {
+		t.Error("ModeAuto: routing a supported extension did not allocate tree-sitter")
+	}
+}
+
+// TestHasTreeSitterGrammar_FromRegistry confirms HasTreeSitterGrammar
+// reflects the registry (treeSitterLanguages) without surprises.
+func TestHasTreeSitterGrammar_FromRegistry(t *testing.T) {
+	if !HasTreeSitterGrammar(".go") {
+		t.Error(".go should be supported")
+	}
+	if HasTreeSitterGrammar(".lua") {
+		t.Error(".lua should not be tree-sitter-backed (it's regex-only)")
+	}
+	// Case insensitivity.
+	if !HasTreeSitterGrammar(".GO") {
+		t.Error(".GO (uppercase) should match .go in the registry")
+	}
+}
+
+// TestTreeSitterExtensions_SortedAndDerived confirms TreeSitterExtensions
+// returns a sorted snapshot derived from the registry.
+func TestTreeSitterExtensions_SortedAndDerived(t *testing.T) {
+	got := TreeSitterExtensions()
+	if len(got) != len(treeSitterLanguages) {
+		t.Fatalf("TreeSitterExtensions returned %d entries; registry has %d",
+			len(got), len(treeSitterLanguages))
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1] >= got[i] {
+			t.Errorf("not sorted at index %d (%q >= %q)", i, got[i-1], got[i])
+			break
+		}
+	}
+	// Every returned ext exists in the registry.
+	for _, ext := range got {
+		if _, ok := treeSitterLanguages[ext]; !ok {
+			t.Errorf("%q returned but not in registry", ext)
+		}
 	}
 }
 
@@ -122,10 +198,7 @@ func (c *Counter) Increment() {
 	c.value++
 }
 `
-	e, err := NewCompoundExtractor(ModeAuto)
-	if err != nil {
-		t.Fatalf("NewCompoundExtractor: %v", err)
-	}
+	e := NewCompoundExtractor(ModeAuto)
 	symbols, err := e.ExtractSymbols(context.Background(), "main.go", goSource)
 	if err != nil {
 		t.Fatalf("ExtractSymbols: %v", err)
@@ -150,10 +223,7 @@ func (c *Counter) Increment() {
 // TestCompound_Mode returns the configured mode for downstream display.
 func TestCompound_Mode(t *testing.T) {
 	for _, m := range []Mode{ModeAuto, ModeFast, ModePrecise} {
-		e, err := NewCompoundExtractor(m)
-		if err != nil {
-			t.Fatalf("NewCompoundExtractor(%q): %v", m, err)
-		}
+		e := NewCompoundExtractor(m)
 		if got := e.Mode(); got != string(m) {
 			t.Errorf("Mode(): got %q, want %q", got, m)
 		}
@@ -163,18 +233,15 @@ func TestCompound_Mode(t *testing.T) {
 // TestCompound_SupportedLanguages returns the union of both extractors'
 // extensions, deduplicated and sorted.
 func TestCompound_SupportedLanguages(t *testing.T) {
-	e, err := NewCompoundExtractor(ModeAuto)
-	if err != nil {
-		t.Fatalf("NewCompoundExtractor: %v", err)
-	}
+	e := NewCompoundExtractor(ModeAuto)
 	langs := e.SupportedLanguages()
 	if len(langs) == 0 {
 		t.Fatal("SupportedLanguages: expected non-empty list")
 	}
 	// Both extractor's exclusive extensions should appear in the union.
-	// .go is tree-sitter-backed; .lua / .rs / .pas are regex-only languages
+	// .go is tree-sitter-backed; .lua and .rs are regex-only languages
 	// known to live in patterns.go.
-	want := []string{".go", ".lua", ".rs", ".pas"}
+	want := []string{".go", ".lua", ".rs"}
 	for _, w := range want {
 		found := false
 		for _, l := range langs {
