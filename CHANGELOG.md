@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `trace.CompoundExtractor` that routes per-file between the tree-sitter and regex extractors per the configured mode.
 - New `trace.ParseMode` helper that normalizes user input and falls back to `auto` with a stderr warning on unknown values.
 - New `trace.HasTreeSitterGrammar` / `trace.TreeSitterExtensions` helpers — the single source of truth for which extensions are tree-sitter-backed in this build.
+- **Tree-sitter symbol extraction for 16 new languages** via a new query-based extraction path. Adding a language is now one `LangSpec` entry in `trace/languages.go` plus a `queries_<lang>.go` file with S-expression queries — no per-language Go code in the extractor required. The new languages:
+  - **Rich query coverage** (top-8 priority): Ruby (`.rb`), Rust (`.rs`), Java (`.java`), Scala (`.scala`, `.sc`)
+  - **Medium coverage**: C (`.c`, `.h`), C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`), Bash/Zsh (`.sh`, `.bash`, `.zsh`), Lua (`.lua`), Kotlin (`.kt`, `.kts`), Swift (`.swift`)
+  - **Minimal coverage** (functions / top-level definitions): SQL (`.sql`), Protobuf (`.proto`), HCL/Terraform (`.hcl`, `.tf`), Elm (`.elm`), TOML (`.toml`)
+  - **Vendored grammar**: Emacs Lisp (`.el`) via [Wilfred/tree-sitter-elisp](https://github.com/Wilfred/tree-sitter-elisp) (MIT). Covers `defun`, `defmacro`, `defvar`, `defconst`, `defcustom`, `defface`, `define-*-mode`, `cl-defun`, `cl-defmethod`, `cl-defgeneric`. See `elisp/README.md` for provenance.
+- New `trace.LangSpec` struct + `trace.NamedQuery` struct + `treeSitterLanguages` slice form the single source of truth for tree-sitter-backed languages. Per-language overhead: one slice entry + one queries file. The existing 9 languages keep their hand-walked extractors; new languages all use queries.
+- New `TestExtractor_LanguageFixtures` table-driven test exercises every language via a small fixture under `trace/testdata/`. Adding a language is automatic in the test layer too: declare the case + drop the fixture.
+
+### Changed
+
+- Binary size grows from ~48 MB to ~70 MB on x86_64-linux as the new grammars are linked in.
+- `trace/extractor_ts.go`'s `ExtractSymbols` now prefers the query path when `LangSpec.Queries` is non-empty; the legacy hand-walked extractors (`extractGoSymbol` / `extractPythonSymbol` / etc.) still run for the original 9 languages. No behaviour change for those.
 
 ## [0.35.0] - 2026-03-16
 

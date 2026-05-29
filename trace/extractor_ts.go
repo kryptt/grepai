@@ -15,16 +15,19 @@ type TreeSitterExtractor struct {
 }
 
 // NewTreeSitterExtractor creates a new tree-sitter based extractor. It
-// initializes one parser per entry in treeSitterLanguages — the single
-// registry that languages.go also exposes via HasTreeSitterGrammar.
+// initializes one parser per extension declared in treeSitterLanguages —
+// the single registry that languages.go also exposes via
+// HasTreeSitterGrammar.
 func NewTreeSitterExtractor() (*TreeSitterExtractor, error) {
 	ext := &TreeSitterExtractor{
-		parsers: make(map[string]*sitter.Parser, len(treeSitterLanguages)),
+		parsers: make(map[string]*sitter.Parser),
 	}
-	for extension, getLanguage := range treeSitterLanguages {
+	for _, spec := range treeSitterLanguages {
 		parser := sitter.NewParser()
-		parser.SetLanguage(getLanguage())
-		ext.parsers[extension] = parser
+		parser.SetLanguage(spec.GetLanguage())
+		for _, e := range spec.Extensions {
+			ext.parsers[e] = parser
+		}
 	}
 	return ext, nil
 }
@@ -57,10 +60,72 @@ func (e *TreeSitterExtractor) ExtractSymbols(ctx context.Context, filePath strin
 	}
 	defer tree.Close()
 
+	// If the language declares S-expression queries, prefer the query-based
+	// path — it's terser to author and more efficient than walking the full
+	// tree. The legacy nine languages (Go, JS, TS, Python, PHP, C#, F#)
+	// have Queries empty and fall through to walkNodeForSymbols.
+	if spec := langSpecByExt(ext); spec != nil && len(spec.Queries) > 0 {
+		return e.extractViaQueries(tree, []byte(content), filePath, spec)
+	}
+
 	var symbols []Symbol
 	root := tree.RootNode()
-
 	e.walkNodeForSymbols(root, []byte(content), filePath, ext, &symbols)
+	return symbols, nil
+}
+
+// extractViaQueries runs each NamedQuery in spec.Queries against the parse
+// tree and emits one Symbol per @name capture. The Kind comes verbatim
+// from the corresponding NamedQuery; the Language tag comes from spec.Name.
+//
+// Queries are expected to contain a (@name) capture; other captures are
+// ignored. This is the common path for new languages added in PR 2 — no
+// per-language Go code beyond declaring the queries.
+func (e *TreeSitterExtractor) extractViaQueries(tree *sitter.Tree, content []byte, filePath string, spec *LangSpec) ([]Symbol, error) {
+	var symbols []Symbol
+	lang := spec.GetLanguage()
+	root := tree.RootNode()
+
+	for _, nq := range spec.Queries {
+		q, err := sitter.NewQuery([]byte(nq.Query), lang)
+		if err != nil {
+			return nil, fmt.Errorf("trace: %s/%s: invalid query: %w", spec.Name, nq.Kind, err)
+		}
+		cursor := sitter.NewQueryCursor()
+		cursor.Exec(q, root)
+
+		for {
+			match, ok := cursor.NextMatch()
+			if !ok {
+				break
+			}
+			// Apply #eq? / #match? / #not-eq? predicates declared in the
+			// query. Predicates are how queries discriminate by token
+			// content (e.g. "this @kind capture equals defvar"). When the
+			// match fails its predicates, FilterPredicates returns nil.
+			match = cursor.FilterPredicates(match, content)
+			if match == nil {
+				continue
+			}
+			for _, capture := range match.Captures {
+				if q.CaptureNameForId(capture.Index) != "name" {
+					continue
+				}
+				name := capture.Node.Content(content)
+				symbols = append(symbols, Symbol{
+					Name:     name,
+					Kind:     SymbolKind(nq.Kind),
+					File:     filePath,
+					Line:     int(capture.Node.StartPoint().Row) + 1,
+					EndLine:  int(capture.Node.EndPoint().Row) + 1,
+					Language: spec.Name,
+					Exported: isExported(name, spec.Name),
+				})
+			}
+		}
+		cursor.Close()
+		q.Close()
+	}
 
 	return symbols, nil
 }

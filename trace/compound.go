@@ -98,8 +98,8 @@ func (e *CompoundExtractor) Mode() string {
 // the registry directly so we don't have to materialize a parser just to
 // list them.
 func (e *CompoundExtractor) SupportedLanguages() []string {
-	seen := make(map[string]bool, len(treeSitterLanguages))
-	for ext := range treeSitterLanguages {
+	seen := make(map[string]bool)
+	for _, ext := range TreeSitterExtensions() {
 		seen[ext] = true
 	}
 	for _, ext := range e.regex.SupportedLanguages() {

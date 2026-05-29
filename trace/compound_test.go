@@ -59,13 +59,13 @@ func TestCompound_AutoDispatch(t *testing.T) {
 		t.Errorf(".go: expected TreeSitterExtractor, got %T", ex)
 	}
 
-	// A .lua file has no tree-sitter grammar in PR 1.
-	ex, err = e.route("script.lua")
+	// A .zig file has no tree-sitter grammar (still regex-only after PR 2).
+	ex, err = e.route("script.zig")
 	if err != nil {
-		t.Fatalf("route(.lua) error: %v", err)
+		t.Fatalf("route(.zig) error: %v", err)
 	}
 	if _, ok := ex.(*RegexExtractor); !ok {
-		t.Errorf(".lua: expected RegexExtractor, got %T", ex)
+		t.Errorf(".zig: expected RegexExtractor, got %T", ex)
 	}
 
 	// An unknown extension still routes to regex (regex returns nil for it
@@ -82,7 +82,7 @@ func TestCompound_AutoDispatch(t *testing.T) {
 // TestCompound_FastDispatch forces every file through the regex extractor.
 func TestCompound_FastDispatch(t *testing.T) {
 	e := NewCompoundExtractor(ModeFast)
-	for _, path := range []string{"main.go", "app.py", "script.lua", "data.xyz"} {
+	for _, path := range []string{"main.go", "app.py", "script.zig", "data.xyz"} {
 		ex, err := e.route(path)
 		if err != nil {
 			t.Fatalf("route(%s) error: %v", path, err)
@@ -105,11 +105,11 @@ func TestCompound_PreciseDispatch(t *testing.T) {
 
 	// No grammar: must produce a descriptive error referencing the
 	// extension and file so callers can surface it to the user.
-	_, err := e.route("script.lua")
+	_, err := e.route("script.zig")
 	if err == nil {
-		t.Fatalf("route(.lua) under ModePrecise: expected error, got nil")
+		t.Fatalf("route(.zig) under ModePrecise: expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "precise") || !strings.Contains(err.Error(), ".lua") {
+	if !strings.Contains(err.Error(), "precise") || !strings.Contains(err.Error(), ".zig") {
 		t.Errorf("error message should reference precise mode and the extension; got %q", err.Error())
 	}
 }
@@ -123,7 +123,7 @@ func TestCompound_FastMode_NoTreeSitterAllocation(t *testing.T) {
 	}
 	// Route several supported and unsupported extensions; all should go to
 	// regex, none should trigger TS lazy init.
-	for _, path := range []string{"main.go", "app.py", "script.lua", "data.xyz"} {
+	for _, path := range []string{"main.go", "app.py", "script.zig", "data.xyz"} {
 		if _, err := e.route(path); err != nil {
 			t.Fatalf("route(%s): %v", path, err)
 		}
@@ -141,8 +141,8 @@ func TestCompound_AutoMode_LazyTreeSitter(t *testing.T) {
 		t.Error("ModeAuto: tree-sitter extractor allocated at construction; expected lazy")
 	}
 	// Routing an unsupported extension still doesn't allocate the TS path.
-	if _, err := e.route("script.lua"); err != nil {
-		t.Fatalf("route(.lua): %v", err)
+	if _, err := e.route("script.zig"); err != nil {
+		t.Fatalf("route(.zig): %v", err)
 	}
 	if e.ts != nil {
 		t.Error("ModeAuto: routing an unsupported extension allocated tree-sitter unnecessarily")
@@ -162,8 +162,8 @@ func TestHasTreeSitterGrammar_FromRegistry(t *testing.T) {
 	if !HasTreeSitterGrammar(".go") {
 		t.Error(".go should be supported")
 	}
-	if HasTreeSitterGrammar(".lua") {
-		t.Error(".lua should not be tree-sitter-backed (it's regex-only)")
+	if HasTreeSitterGrammar(".zig") {
+		t.Error(".zig should not be tree-sitter-backed (it's regex-only)")
 	}
 	// Case insensitivity.
 	if !HasTreeSitterGrammar(".GO") {
@@ -175,14 +175,17 @@ func TestHasTreeSitterGrammar_FromRegistry(t *testing.T) {
 // returns a sorted snapshot derived from the registry.
 func TestTreeSitterExtensions_SortedAndDerived(t *testing.T) {
 	got := TreeSitterExtensions()
-	if len(got) != len(treeSitterLanguages) {
-		t.Fatalf("TreeSitterExtensions returned %d entries; registry has %d",
-			len(got), len(treeSitterLanguages))
+	expected := 0
+	for _, spec := range treeSitterLanguages {
+		expected += len(spec.Extensions)
+	}
+	if len(got) != expected {
+		t.Fatalf("TreeSitterExtensions returned %d entries; registry has %d", len(got), expected)
 	}
 	assertStrictlySorted(t, "TreeSitterExtensions", got)
 	// Every returned ext exists in the registry.
 	for _, ext := range got {
-		if _, ok := treeSitterLanguages[ext]; !ok {
+		if langSpecByExt(ext) == nil {
 			t.Errorf("%q returned but not in registry", ext)
 		}
 	}
@@ -246,9 +249,9 @@ func TestCompound_SupportedLanguages(t *testing.T) {
 		t.Fatal("SupportedLanguages: expected non-empty list")
 	}
 	// Both extractor's exclusive extensions should appear in the union.
-	// .go is tree-sitter-backed; .lua and .rs are regex-only languages
+	// .go is tree-sitter-backed; .zig and .rs are regex-only languages
 	// known to live in patterns.go.
-	want := []string{".go", ".lua", ".rs"}
+	want := []string{".go", ".zig", ".rs"}
 	for _, w := range want {
 		found := false
 		for _, l := range langs {
