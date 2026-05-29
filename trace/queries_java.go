@@ -13,4 +13,10 @@ var javaQueries = []NamedQuery{
 	{Kind: "record", Query: `(record_declaration name: (identifier) @name)`},
 	{Kind: "method", Query: `(method_declaration name: (identifier) @name)`},
 	{Kind: "constructor", Query: `(constructor_declaration name: (identifier) @name)`},
+	// Fields: the name lives two nodes deep
+	// (field_declaration → variable_declarator → identifier). A single
+	// field_declaration can declare several names ("int a, b, c;") — each
+	// gets its own variable_declarator, so the query naturally yields one
+	// Symbol per declared name.
+	{Kind: "field", Query: `(field_declaration declarator: (variable_declarator name: (identifier) @name))`},
 }
