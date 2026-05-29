@@ -138,7 +138,7 @@ Examples:
 func init() {
 	// Add flags to all trace subcommands
 	for _, cmd := range []*cobra.Command{traceCallersCmd, traceCalleesCmd, traceGraphCmd} {
-		cmd.Flags().StringVarP(&traceMode, "mode", "m", "fast", "Extraction mode: fast (regex) or precise (tree-sitter)")
+		cmd.Flags().StringVarP(&traceMode, "mode", "m", "auto", "Extraction mode: auto (tree-sitter where available, regex otherwise; default), fast (regex everywhere), precise (tree-sitter, errors on unsupported extensions)")
 		cmd.Flags().BoolVar(&traceJSON, "json", false, "Output results in JSON format")
 		cmd.Flags().BoolVarP(&traceTOON, "toon", "t", false, "Output results in TOON format (token-efficient for AI agents)")
 		cmd.Flags().BoolVar(&traceUI, "ui", false, "Show interactive UI output")
