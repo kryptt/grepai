@@ -10,4 +10,9 @@ var kotlinQueries = []NamedQuery{
 	{Kind: "class", Query: `(class_declaration (type_identifier) @name)`},
 	{Kind: "object", Query: `(object_declaration (type_identifier) @name)`},
 	{Kind: "function", Query: `(function_declaration (simple_identifier) @name)`},
+	// Properties / fields. Kotlin nests the name inside a
+	// variable_declaration that lives directly under
+	// property_declaration. Captures `val`, `var`, and `const val`
+	// properties — both class-level and top-level.
+	{Kind: "property", Query: `(property_declaration (variable_declaration (simple_identifier) @name))`},
 }

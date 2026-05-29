@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Binary size grows from ~48 MB to ~70 MB on x86_64-linux as the new grammars are linked in.
 - `trace/extractor_ts.go`'s `ExtractSymbols` now prefers the query path when `LangSpec.Queries` is non-empty; the legacy hand-walked extractors (`extractGoSymbol` / `extractPythonSymbol` / etc.) still run for the original 9 languages. No behaviour change for those.
+- **Tree-sitter follow-ups** on top of the language additions above:
+  - **Elixir** (`.ex`, `.exs`) — `defmodule` / `defprotocol` / `defimpl` / `defstruct` / `defexception` / `defrecord` map to Kind `module`; `def` / `defp` / `defmacro` / `defmacrop` to Kind `function`. Discrimination is via `#match?` predicates on the leading identifier of the `(call ...)` shape, covering both the parens form (`def foo(a)`) and the parens-less form (`def foo, do: ...`).
+  - **Emacs Lisp `defalias`** — the alias target is a `quote` node containing the actual symbol; the query now descends into the quote to surface the inner symbol as `@name`.
+  - **Java fields** — `public static final int MAX = 100;` and friends. One Symbol per declared name within a `field_declaration` (Java allows `int a, b, c;`).
+  - **Kotlin properties** — `val`, `var`, and `const val` declarations at class- and top-level become `property:NAME` symbols.
 
 ## [0.35.0] - 2026-03-16
 

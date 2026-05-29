@@ -26,10 +26,10 @@ var elispQueries = []NamedQuery{
 	// parse as generic lists. Discriminate via #eq?.
 	{Kind: "defcustom", Query: `(list . (symbol) @kind . (symbol) @name (#eq? @kind "defcustom"))`},
 	{Kind: "defface", Query: `(list . (symbol) @kind . (symbol) @name (#eq? @kind "defface"))`},
-	// defalias is intentionally omitted: its second argument is typically
-	// a quote ('name) rather than a bare symbol, so a clean query that
-	// captures both quoted and unquoted forms needs grammar work beyond
-	// the scope of this PR. Regex still picks it up.
+	// defalias's alias target is a quote node containing the actual
+	// symbol — (defalias 'old-name #'new-name). Descend into the quote
+	// to capture the inner symbol as @name.
+	{Kind: "defalias", Query: `(list . (symbol) @kind . (quote (symbol) @name) (#eq? @kind "defalias"))`},
 
 	// define-*-mode family — all match the same pattern.
 	{Kind: "define-mode", Query: `(list . (symbol) @kind . (symbol) @name (#match? @kind "^define-(minor|derived|generic|globalized-minor)-mode$"))`},
