@@ -148,9 +148,9 @@ func (e *TreeSitterExtractor) walkNodeForSymbols(node *sitter.Node, content []by
 	switch ext {
 	case ".go":
 		e.extractGoSymbol(node, nodeType, content, filePath, symbols)
-	case ".js", ".jsx":
+	case ".js", ".jsx", ".mjs", ".cjs":
 		e.extractJSSymbol(node, nodeType, content, filePath, "javascript", symbols)
-	case ".ts", ".tsx":
+	case ".ts", ".tsx", ".mts", ".cts":
 		e.extractJSSymbol(node, nodeType, content, filePath, "typescript", symbols)
 	case ".py":
 		e.extractPythonSymbol(node, nodeType, content, filePath, symbols)
