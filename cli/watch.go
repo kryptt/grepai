@@ -1003,11 +1003,7 @@ func watchProjectWithEventObserver(ctx context.Context, projectRoot string, emb 
 	}
 	defer symbolStore.Close()
 
-	mode, ok := trace.ParseMode(cfg.Trace.Mode)
-	if !ok {
-		log.Printf("Warning: trace.mode %q is not recognized; defaulting to %q (valid values: auto, fast, precise)", cfg.Trace.Mode, mode)
-	}
-	extractor := trace.NewCompoundExtractor(mode)
+	extractor := buildSymbolExtractor(cfg.Trace.Mode, projectRoot)
 
 	// Initialize RPG if enabled.
 	var rpgEncoder *rpg.RPGEncoder
@@ -2006,6 +2002,18 @@ func runWatchForeground() error {
 	)
 }
 
+// buildSymbolExtractor parses rawMode (logging a warning if the value
+// isn't recognized) and returns the compound extractor. context is included
+// in the warning so users can locate the misconfigured project — typically
+// the project root path, or for workspace projects "workspace project NAME".
+func buildSymbolExtractor(rawMode, context string) *trace.CompoundExtractor {
+	mode, ok := trace.ParseMode(rawMode)
+	if !ok {
+		log.Printf("Warning: %s: trace.mode %q is not recognized; defaulting to %q (valid values: auto, fast, precise)", context, rawMode, mode)
+	}
+	return trace.NewCompoundExtractor(mode)
+}
+
 func extractSymbolsWithFramework(ctx context.Context, extractor trace.SymbolExtractor, filePath, source string, processors ...*framework.ProcessorRegistry) ([]trace.Symbol, []trace.Reference, error) {
 	if len(processors) == 0 || processors[0] == nil {
 		return extractor.ExtractAll(ctx, filePath, source)
@@ -2766,11 +2774,7 @@ func initializeWorkspaceRuntime(ctx context.Context, ws *config.Workspace, proje
 		projectPath:   project.Path,
 	}
 	idx := indexer.NewIndexer(project.Path, vectorStore, emb, chunker, scanner, projectCfg.Watch.LastIndexTime, processorRegistry)
-	mode, modeOK := trace.ParseMode(projectCfg.Trace.Mode)
-	if !modeOK {
-		log.Printf("Warning: workspace project %q has unrecognized trace.mode %q; defaulting to %q", project.Name, projectCfg.Trace.Mode, mode)
-	}
-	extractor := trace.NewCompoundExtractor(mode)
+	extractor := buildSymbolExtractor(projectCfg.Trace.Mode, "workspace project "+project.Name)
 	symbolStore := trace.NewGOBSymbolStore(config.GetSymbolIndexPath(project.Path))
 	if err := symbolStore.Load(ctx); err != nil {
 		log.Printf("Warning: failed to load symbol index for %s: %v", project.Path, err)
