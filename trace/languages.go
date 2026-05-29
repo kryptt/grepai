@@ -74,8 +74,8 @@ type NamedQuery struct {
 var treeSitterLanguages = []LangSpec{
 	// --- Legacy walk-based languages (extractor_ts.go has hand-written walks).
 	{Name: "go", Extensions: []string{".go"}, GetLanguage: golang.GetLanguage},
-	{Name: "javascript", Extensions: []string{".js", ".jsx"}, GetLanguage: javascript.GetLanguage},
-	{Name: "typescript", Extensions: []string{".ts", ".tsx"}, GetLanguage: typescript.GetLanguage},
+	{Name: "javascript", Extensions: []string{".js", ".jsx", ".mjs", ".cjs"}, GetLanguage: javascript.GetLanguage},
+	{Name: "typescript", Extensions: []string{".ts", ".tsx", ".mts", ".cts"}, GetLanguage: typescript.GetLanguage},
 	{Name: "python", Extensions: []string{".py"}, GetLanguage: python.GetLanguage},
 	{Name: "php", Extensions: []string{".php"}, GetLanguage: php.GetLanguage},
 	{Name: "csharp", Extensions: []string{".cs"}, GetLanguage: csharp.GetLanguage},
@@ -85,7 +85,7 @@ var treeSitterLanguages = []LangSpec{
 	{Name: "ruby", Extensions: []string{".rb"}, GetLanguage: ruby.GetLanguage, Queries: rubyQueries},
 	{Name: "rust", Extensions: []string{".rs"}, GetLanguage: rust.GetLanguage, Queries: rustQueries},
 	{Name: "java", Extensions: []string{".java"}, GetLanguage: java.GetLanguage, Queries: javaQueries},
-	{Name: "scala", Extensions: []string{".scala", ".sc"}, GetLanguage: scala.GetLanguage, Queries: scalaQueries},
+	{Name: "scala", Extensions: []string{".scala", ".sc", ".mill"}, GetLanguage: scala.GetLanguage, Queries: scalaQueries},
 
 	// Medium priority (PR 2).
 	{Name: "c", Extensions: []string{".c", ".h"}, GetLanguage: c.GetLanguage, Queries: cQueries},
