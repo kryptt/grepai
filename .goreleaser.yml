@@ -1,23 +1,48 @@
 version: 2
 
+# This fork ships tree-sitter grammars (smacker/go-tree-sitter), which are C
+# libraries — so every build needs CGO_ENABLED=1 and a matching C toolchain.
+# Cross-compiling CGO is done via the goreleaser-cross image, which bundles the
+# per-target compilers referenced in builds[].overrides below. See
+# .github/workflows/release.yml.
+
 before:
   hooks:
     - go mod download
 
 builds:
-  - main: ./cmd/grepai
+  - id: grepai
+    main: ./cmd/grepai
     binary: grepai
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
-    ldflags:
-      - -s -w -X main.version={{.Version}}
+    overrides:
+      - goos: linux
+        goarch: amd64
+        env:
+          - CC=x86_64-linux-gnu-gcc
+      - goos: linux
+        goarch: arm64
+        env:
+          - CC=aarch64-linux-gnu-gcc
+      - goos: darwin
+        goarch: amd64
+        env:
+          - CC=o64-clang
+      - goos: darwin
+        goarch: arm64
+        env:
+          - CC=oa64-clang
 
 archives:
   - formats: [tar.gz]
@@ -26,13 +51,6 @@ archives:
       {{- .Version }}_
       {{- .Os }}_
       {{- .Arch }}
-    format_overrides:
-      - goos: windows
-        formats: [zip]
-    files:
-      - README.md
-      - LICENSE
-      - CHANGELOG.md
 
 checksum:
   name_template: "checksums.txt"
@@ -64,7 +82,7 @@ changelog:
 
 release:
   github:
-    owner: yoanbernabeu
+    owner: kryptt
     name: grepai
   draft: false
   prerelease: auto
@@ -72,22 +90,9 @@ release:
   header: |
     ## grepai {{ .Version }}
 
-    Semantic code search CLI tool.
+    Semantic code search CLI (kryptt fork — tree-sitter symbol extraction for
+    24 languages).
   footer: |
     ---
 
-    **Full Changelog**: https://github.com/yoanbernabeu/grepai/compare/{{ .PreviousTag }}...{{ .Tag }}
-
-brews:
-  - repository:
-      owner: yoanbernabeu
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/yoanbernabeu/grepai
-    description: "Privacy-first semantic code search CLI"
-    license: MIT
-    install: |
-      bin.install "grepai"
-    test: |
-      system "#{bin}/grepai", "--version"
+    **Full Changelog**: https://github.com/kryptt/grepai/compare/{{ .PreviousTag }}...{{ .Tag }}

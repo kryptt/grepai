@@ -6,7 +6,7 @@
     %LOCALAPPDATA%\Programs\grepai and updates the user PATH.
 #>
 
-$repo = "yoanbernabeu/grepai"
+$repo = if ($env:GREPAI_REPO) { $env:GREPAI_REPO } else { "kryptt/grepai" }
 $installDir = "$env:LOCALAPPDATA\Programs\grepai"
 $binName = "grepai.exe"
 
