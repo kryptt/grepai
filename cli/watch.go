@@ -2968,8 +2968,31 @@ func (p *projectPrefixStore) DeleteDocument(ctx context.Context, filePath string
 	return p.store.DeleteDocument(ctx, prefixedPath)
 }
 
+// ListDocuments returns only the documents whose path begins with this
+// project's workspace+project prefix, with the prefix stripped so the
+// indexer sees relative paths that match what its scanner enumerates.
+//
+// Without this filter the inner shared store returns every document in
+// the entire workspace; the indexer then treats every other project's
+// docs as "no longer present" and runs RemoveFile against each one. The
+// removes silently no-op (projectPrefixStore.DeleteByFile re-adds the
+// prefix, producing a doubly-prefixed path that never matches a stored
+// row), but the spurious work shows up as wildly inflated "files
+// removed" counts (the workspace total, on every per-project scan) and
+// thousands of pointless Postgres roundtrips on every restart.
 func (p *projectPrefixStore) ListDocuments(ctx context.Context) ([]string, error) {
-	return p.store.ListDocuments(ctx)
+	all, err := p.store.ListDocuments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	prefix := p.getPrefix() + "/"
+	out := make([]string, 0, len(all))
+	for _, path := range all {
+		if strings.HasPrefix(path, prefix) {
+			out = append(out, strings.TrimPrefix(path, prefix))
+		}
+	}
+	return out, nil
 }
 
 func (p *projectPrefixStore) Load(ctx context.Context) error {
