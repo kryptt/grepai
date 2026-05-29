@@ -3,7 +3,6 @@ package trace
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -31,20 +30,20 @@ const (
 	ModePrecise Mode = "precise"
 )
 
-// ParseMode normalizes a user-supplied mode string. Empty defaults to
-// ModeAuto. Unknown values fall back to ModeAuto with a one-line warning
-// to stderr.
-func ParseMode(s string) Mode {
+// ParseMode normalizes a user-supplied mode string and reports whether the
+// input was recognized. Empty input returns (ModeAuto, true). Unknown
+// strings return (ModeAuto, false) so callers can decide how to surface
+// the recovery — typically a one-line log at the CLI layer.
+func ParseMode(s string) (Mode, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", "auto":
-		return ModeAuto
+		return ModeAuto, true
 	case "fast":
-		return ModeFast
+		return ModeFast, true
 	case "precise":
-		return ModePrecise
+		return ModePrecise, true
 	default:
-		fmt.Fprintf(os.Stderr, "trace: unknown extractor mode %q, defaulting to auto\n", s)
-		return ModeAuto
+		return ModeAuto, false
 	}
 }
 
@@ -52,25 +51,40 @@ func ParseMode(s string) Mode {
 // tree-sitter extractor (for languages with a compiled-in grammar) and the
 // regex extractor (for everything else). It implements SymbolExtractor and
 // is what cli/watch and cli/trace use by default.
+//
+// The tree-sitter extractor is allocated lazily on first use, so callers
+// running in ModeFast pay no parser-construction cost.
 type CompoundExtractor struct {
-	ts    *TreeSitterExtractor
-	regex *RegexExtractor
 	mode  Mode
+	regex *RegexExtractor
+	ts    *TreeSitterExtractor // nil until needed
 }
 
 // NewCompoundExtractor constructs a compound extractor in the given mode.
-// Returns an error only if the tree-sitter extractor itself fails to
-// initialize (which should never happen in a default build).
-func NewCompoundExtractor(mode Mode) (*CompoundExtractor, error) {
+// Tree-sitter parser construction is deferred until a file actually needs
+// it, so ModeFast incurs zero CGo grammar cost. Errors only surface from
+// per-file dispatch (lazy TS init failure) and are not possible here.
+func NewCompoundExtractor(mode Mode) *CompoundExtractor {
+	return &CompoundExtractor{
+		mode:  mode,
+		regex: NewRegexExtractor(),
+	}
+}
+
+// treeSitterExtractor returns the (lazily constructed) tree-sitter
+// extractor. ModeFast never calls this; ModeAuto only calls it when a
+// supported extension is encountered; ModePrecise calls it eagerly on
+// every supported extension.
+func (e *CompoundExtractor) treeSitterExtractor() (*TreeSitterExtractor, error) {
+	if e.ts != nil {
+		return e.ts, nil
+	}
 	ts, err := NewTreeSitterExtractor()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize tree-sitter extractor: %w", err)
 	}
-	return &CompoundExtractor{
-		ts:    ts,
-		regex: NewRegexExtractor(),
-		mode:  mode,
-	}, nil
+	e.ts = ts
+	return ts, nil
 }
 
 // Mode returns the configured mode as a string (one of "auto", "fast",
@@ -80,10 +94,12 @@ func (e *CompoundExtractor) Mode() string {
 }
 
 // SupportedLanguages returns the sorted union of extensions either
-// underlying extractor can handle.
+// underlying extractor can handle. The tree-sitter extensions come from
+// the registry directly so we don't have to materialize a parser just to
+// list them.
 func (e *CompoundExtractor) SupportedLanguages() []string {
-	seen := make(map[string]bool)
-	for _, ext := range e.ts.SupportedLanguages() {
+	seen := make(map[string]bool, len(treeSitterLanguages))
+	for ext := range treeSitterLanguages {
 		seen[ext] = true
 	}
 	for _, ext := range e.regex.SupportedLanguages() {
@@ -107,12 +123,12 @@ func (e *CompoundExtractor) route(filePath string) (SymbolExtractor, error) {
 		return e.regex, nil
 	case ModePrecise:
 		if !HasTreeSitterGrammar(ext) {
-			return nil, fmt.Errorf("--mode precise: no tree-sitter grammar for extension %q (file %s)", ext, filePath)
+			return nil, fmt.Errorf("trace: precise mode requires a tree-sitter grammar for extension %q (file %s); none compiled in", ext, filePath)
 		}
-		return e.ts, nil
+		return e.treeSitterExtractor()
 	default: // ModeAuto and any future modes default to the safe path
 		if HasTreeSitterGrammar(ext) {
-			return e.ts, nil
+			return e.treeSitterExtractor()
 		}
 		return e.regex, nil
 	}

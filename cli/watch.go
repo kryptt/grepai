@@ -1003,10 +1003,11 @@ func watchProjectWithEventObserver(ctx context.Context, projectRoot string, emb 
 	}
 	defer symbolStore.Close()
 
-	extractor, err := trace.NewCompoundExtractor(trace.ParseMode(cfg.Trace.Mode))
-	if err != nil {
-		return fmt.Errorf("failed to initialize symbol extractor: %w", err)
+	mode, ok := trace.ParseMode(cfg.Trace.Mode)
+	if !ok {
+		log.Printf("Warning: trace.mode %q is not recognized; defaulting to %q (valid values: auto, fast, precise)", cfg.Trace.Mode, mode)
 	}
+	extractor := trace.NewCompoundExtractor(mode)
 
 	// Initialize RPG if enabled.
 	var rpgEncoder *rpg.RPGEncoder
@@ -2765,10 +2766,11 @@ func initializeWorkspaceRuntime(ctx context.Context, ws *config.Workspace, proje
 		projectPath:   project.Path,
 	}
 	idx := indexer.NewIndexer(project.Path, vectorStore, emb, chunker, scanner, projectCfg.Watch.LastIndexTime, processorRegistry)
-	extractor, err := trace.NewCompoundExtractor(trace.ParseMode(projectCfg.Trace.Mode))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize symbol extractor: %w", err)
+	mode, modeOK := trace.ParseMode(projectCfg.Trace.Mode)
+	if !modeOK {
+		log.Printf("Warning: workspace project %q has unrecognized trace.mode %q; defaulting to %q", project.Name, projectCfg.Trace.Mode, mode)
 	}
+	extractor := trace.NewCompoundExtractor(mode)
 	symbolStore := trace.NewGOBSymbolStore(config.GetSymbolIndexPath(project.Path))
 	if err := symbolStore.Load(ctx); err != nil {
 		log.Printf("Warning: failed to load symbol index for %s: %v", project.Path, err)
