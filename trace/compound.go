@@ -93,6 +93,16 @@ func (e *CompoundExtractor) Mode() string {
 	return string(e.mode)
 }
 
+// Version reports the compound extractor's dedup signature. It folds in
+// the underlying regex + tree-sitter versions plus the configured mode
+// so that switching modes (which changes which underlying extractor
+// runs per file) invalidates cached symbols too.
+func (e *CompoundExtractor) Version() string {
+	regexVersion := e.regex.Version()
+	tsVersion := treeSitterExtractorVersion // constant; ts may be nil under ModeFast
+	return "compound-" + string(e.mode) + "-" + regexVersion + "-" + tsVersion
+}
+
 // SupportedLanguages returns the sorted union of extensions either
 // underlying extractor can handle. The tree-sitter extensions come from
 // the registry directly so we don't have to materialize a parser just to
