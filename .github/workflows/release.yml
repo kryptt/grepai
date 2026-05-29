@@ -17,18 +17,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-          cache: true
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
+      # The fork's tree-sitter grammars are CGO. Cross-compiling CGO for
+      # linux/darwin × amd64/arm64 needs the per-target C toolchains bundled in
+      # the goreleaser-cross image (osxcross for darwin, aarch64 cross-gcc for
+      # arm64). The image's Go version must track go.mod (go 1.24.x).
+      - name: Run GoReleaser (CGO cross)
+        run: |
+          docker run --rm \
+            -v "$PWD":/src \
+            -w /src \
+            -e GITHUB_TOKEN \
+            ghcr.io/goreleaser/goreleaser-cross:v1.24.2 \
+            release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GH_PAT }}

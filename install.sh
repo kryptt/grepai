@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="yoanbernabeu/grepai"
+REPO="${GREPAI_REPO:-kryptt/grepai}"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS
