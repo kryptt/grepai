@@ -53,6 +53,9 @@ func TestExtractor_LanguageFixtures(t *testing.T) {
 				"class:Greeter",
 				"constructor:Greeter",
 				"enum:Color",
+				"field:MAX_USERS",
+				"field:id",
+				"field:name",
 				"interface:Greet",
 				"method:compute",
 				"method:hello",
@@ -125,6 +128,10 @@ func TestExtractor_LanguageFixtures(t *testing.T) {
 				"function:standalone",
 				"function:work",
 				"object:Singleton",
+				"property:MAX",
+				"property:counter",
+				"property:name",
+				"property:region",
 			},
 		},
 		{
@@ -187,14 +194,26 @@ func TestExtractor_LanguageFixtures(t *testing.T) {
 			},
 		},
 		{
+			name:        "elixir",
+			fixturePath: "sample.ex",
+			want: []string{
+				"function:a",
+				"function:b",
+				"function:greet",
+				"function:hello",
+				"function:helper",
+				"module:Greet",
+				"module:Greeter",
+				"module:Multi.Nested",
+			},
+		},
+		{
 			name:        "elisp",
 			fixturePath: "sample.el",
-			// defalias is intentionally not asserted — the grammar parses
-			// its target as a `quote` node, not a bare `symbol`, and our
-			// query set doesn't yet cover that shape. See queries_elisp.go.
 			want: []string{
 				"cl-defmethod:foo",
 				"cl-defun:fancy-fn",
+				"defalias:old-name",
 				"defconst:max-retries",
 				"defcustom:user-name",
 				"defface:my-face",

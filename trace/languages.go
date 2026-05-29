@@ -9,6 +9,7 @@ import (
 	"github.com/smacker/go-tree-sitter/c"
 	"github.com/smacker/go-tree-sitter/cpp"
 	"github.com/smacker/go-tree-sitter/csharp"
+	"github.com/smacker/go-tree-sitter/elixir"
 	"github.com/smacker/go-tree-sitter/elm"
 	"github.com/smacker/go-tree-sitter/golang"
 	"github.com/smacker/go-tree-sitter/hcl"
@@ -99,6 +100,7 @@ var treeSitterLanguages = []LangSpec{
 	{Name: "protobuf", Extensions: []string{".proto"}, GetLanguage: protobuf.GetLanguage, Queries: protobufQueries},
 	{Name: "hcl", Extensions: []string{".hcl", ".tf"}, GetLanguage: hcl.GetLanguage, Queries: hclQueries},
 	{Name: "elm", Extensions: []string{".elm"}, GetLanguage: elm.GetLanguage, Queries: elmQueries},
+	{Name: "elixir", Extensions: []string{".ex", ".exs"}, GetLanguage: elixir.GetLanguage, Queries: elixirQueries},
 	{Name: "toml", Extensions: []string{".toml"}, GetLanguage: toml.GetLanguage, Queries: tomlQueries},
 
 	// Vendored grammar (PR 2). See elisp/README.md for provenance.
