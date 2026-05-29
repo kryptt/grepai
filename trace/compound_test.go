@@ -6,6 +6,18 @@ import (
 	"testing"
 )
 
+// assertStrictlySorted fails the test if got is not strictly ascending.
+// label is used in the failure message to disambiguate call sites.
+func assertStrictlySorted(t *testing.T, label string, got []string) {
+	t.Helper()
+	for i := 1; i < len(got); i++ {
+		if got[i-1] >= got[i] {
+			t.Errorf("%s: not strictly sorted at index %d (%q >= %q)", label, i, got[i-1], got[i])
+			return
+		}
+	}
+}
+
 // TestParseMode covers the user-input normalization path. ParseMode is
 // pure: it never logs, and returns a recognized-flag so the caller can
 // surface an unknown-input warning where it belongs (typically the CLI).
@@ -167,12 +179,7 @@ func TestTreeSitterExtensions_SortedAndDerived(t *testing.T) {
 		t.Fatalf("TreeSitterExtensions returned %d entries; registry has %d",
 			len(got), len(treeSitterLanguages))
 	}
-	for i := 1; i < len(got); i++ {
-		if got[i-1] >= got[i] {
-			t.Errorf("not sorted at index %d (%q >= %q)", i, got[i-1], got[i])
-			break
-		}
-	}
+	assertStrictlySorted(t, "TreeSitterExtensions", got)
 	// Every returned ext exists in the registry.
 	for _, ext := range got {
 		if _, ok := treeSitterLanguages[ext]; !ok {
@@ -254,11 +261,5 @@ func TestCompound_SupportedLanguages(t *testing.T) {
 			t.Errorf("SupportedLanguages: %s missing from result", w)
 		}
 	}
-	// Confirm sortedness.
-	for i := 1; i < len(langs); i++ {
-		if langs[i-1] > langs[i] {
-			t.Errorf("SupportedLanguages: not sorted at index %d (%q > %q)", i, langs[i-1], langs[i])
-			break
-		}
-	}
+	assertStrictlySorted(t, "SupportedLanguages", langs)
 }
