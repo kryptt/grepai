@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/qdrant/go-client/qdrant"
+	"google.golang.org/grpc"
 )
 
 // sanitizeUTF8 ensures the string contains only valid UTF-8 characters.
@@ -62,6 +63,9 @@ func NewQdrantStoreWithNamespace(ctx context.Context, endpoint string, port int,
 		Port:   port,
 		UseTLS: useTLS,
 		APIKey: apiKey,
+		GrpcOptions: []grpc.DialOption{
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64 * 1024 * 1024)),
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Qdrant client: %w", err)
@@ -504,7 +508,6 @@ func (s *QdrantStore) GetAllChunks(ctx context.Context) ([]Chunk, error) {
 		Filter:         s.filterWithNamespace(),
 		Limit:          qdrant.PtrOf(uint32(100000)),
 		WithPayload:    qdrant.NewWithPayloadInclude("file_path", "start_line", "end_line", "content", "hash", "updated_at"),
-		WithVectors:    qdrant.NewWithVectors(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all chunks: %w", err)
