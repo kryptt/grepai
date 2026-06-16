@@ -18,6 +18,19 @@
 
 </div>
 
+> [!NOTE]
+> **This is an independently-maintained fork** ([`kryptt/grepai`](https://github.com/kryptt/grepai)) of [`yoanbernabeu/grepai`](https://github.com/yoanbernabeu/grepai).
+> All credit for the original project goes to [Yoan Bernabeu](https://github.com/yoanbernabeu) and its contributors.
+>
+> This fork tracks upstream and selectively merges community PRs, plus carries changes we depend on:
+> tree-sitter symbol extraction for 25+ languages (query-based, on by default), `--mode` dispatch,
+> per-project state relocation under `~/.grepai/`, symlink-rooted project indexing, configurable
+> embedder request timeout / retries, and custom file extensions. We also pull in upstream correctness
+> fixes (Postgres cache scoping, Qdrant chunk identity, RPG concurrency, indexer/gitignore handling).
+>
+> Releases are built from the `local/deploy` branch. Issues and PRs for fork-specific changes belong here;
+> upstream remains the canonical project.
+
 ---
 
 `grepai` is a privacy-first CLI for semantic code search. It uses vector embeddings to understand code meaning, enabling natural language queries that find relevant code—even when naming conventions vary.
