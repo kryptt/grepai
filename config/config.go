@@ -148,6 +148,18 @@ func (e *EmbedderConfig) GetDimensions() int {
 	}
 }
 
+// CacheNamespace returns the semantic namespace used for embedding-cache reuse.
+// It intentionally excludes secrets such as API keys.
+func (e *EmbedderConfig) CacheNamespace() string {
+	return fmt.Sprintf(
+		"embedding-cache-v2:provider=%s:model=%s:dimensions=%d:endpoint=%s",
+		strings.TrimSpace(e.Provider),
+		strings.TrimSpace(e.Model),
+		e.GetDimensions(),
+		strings.TrimSpace(e.Endpoint),
+	)
+}
+
 func DefaultEmbedderForProvider(provider string) EmbedderConfig {
 	switch provider {
 	case "synthetic":
