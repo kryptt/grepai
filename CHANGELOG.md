@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Java fields** — `public static final int MAX = 100;` and friends. One Symbol per declared name within a `field_declaration` (Java allows `int a, b, c;`).
   - **Kotlin properties** — `val`, `var`, and `const val` declarations at class- and top-level become `property:NAME` symbols.
 
+### Fixed
+
+- **Gitignore Root Match**: Fix `.gitignore` pattern `.*/` incorrectly matching the root directory and preventing all files from being indexed (#203)
+
 ## [0.35.0] - 2026-03-16
 
 ### Added
