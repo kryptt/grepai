@@ -112,6 +112,17 @@ type EmbedderConfig struct {
 	APIKey      string `yaml:"api_key,omitempty"`
 	Dimensions  *int   `yaml:"dimensions,omitempty"`
 	Parallelism int    `yaml:"parallelism"` // Number of parallel workers for batch embedding (default: 4)
+	// RequestTimeoutSeconds is the HTTP client timeout for a single embedding
+	// request. 0 (the default) preserves the historical 60-second value.
+	// Raise this when running against slow self-hosted endpoints
+	// (e.g., ollama-cuda on a shared GPU) where embedding a full batch can
+	// take longer than a minute.
+	RequestTimeoutSeconds int `yaml:"request_timeout_seconds,omitempty"`
+	// MaxRetries caps the number of retry attempts for transient embedding
+	// failures (HTTP 429 / 5xx). 0 (the default) preserves the historical
+	// value of 5. Only consumed by providers that implement retry today
+	// (openai); other providers ignore it.
+	MaxRetries int `yaml:"max_retries,omitempty"`
 }
 
 // GetDimensions returns the configured dimensions or a default value.
