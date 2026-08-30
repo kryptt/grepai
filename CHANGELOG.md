@@ -7,16 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-08-30
+
 ### Added
 
+- **Vue SFC Support**: Process Vue single-file components for search and trace, with source remapping back to original line numbers (#157) - @mika76
+- **File-Level Deduplication**: Configurable `search.dedup` to collapse multiple chunks from the same file into a single result (#188) - @Don-Yin
+- **RPG CLI Commands**: `grepai rpg search`, `grepai rpg fetch` and `grepai rpg explore`, plus `--compact` structured output for `trace` and `refs`, bringing the CLI to parity with the MCP server (#240) - @teelicht
+- **Custom File Extensions**: New `chunking.custom_extensions` option to index file types outside the built-in list, for niche or polyglot codebases (#256) - @kryptt
+- **Configurable Embedder Timeout and Retries**: New `embedder.request_timeout_seconds` and `embedder.max_retries` for slow self-hosted endpoints; defaults are unchanged (60s, 5 attempts) (#257) - @kryptt
 - **Requesty Provider**: Add Requesty as a new embedding provider
   - Requesty (`requesty`): Multi-provider gateway via `https://router.requesty.ai/v1` with OpenAI-compatible embeddings (`openai/text-embedding-3-small`, 1536 dims)
   - API key resolved from `REQUESTY_API_KEY` (falling back to `OPENAI_API_KEY`)
-  - Integrated into the embedder factory (`NewFromConfig`), `grepai init` prompts, and shell completion
+  - Integrated into the embedder factory (`NewFromConfig`), `grepai init` prompts, and shell completion (#268) - @Thibaultjaigu
+- **Opt Out of Worktree Discovery**: New `watch.discover_worktrees` option to stop `grepai watch` from auto-initializing and watching every linked git worktree (#270) - @rusel95
+- **C++ `.cxx` / `.hxx` Support**: Index and trace `.cxx` and `.hxx` files, which were previously skipped despite being advertised in the default config (#276) - @Third-Thing
 
 ### Fixed
 
-- **Gitignore Root Match**: Fix `.gitignore` pattern `.*/` incorrectly matching the root directory and preventing all files from being indexed (#203)
+- **Watcher Crash on Long Runs**: Add a mutex to the RPG graph, fixing the `concurrent map iteration and map write` crash that killed `grepai watch` after hours of use (#206, closes #279) - @drizzt
+- **Gitignore Root Match**: Fix `.gitignore` pattern `.*/` incorrectly matching the root directory and preventing all files from being indexed (#203, closes #202) - @pingtimeout
+- **Qdrant Search on Large Repos**: Raise the gRPC max message size to 64 MB and stop fetching unused vectors in `GetAllChunks`, fixing `ResourceExhausted` errors on hybrid search (#207) - @drizzt
+- **Windows Qdrant Collection Names**: Sanitize `\` and `:` in collection names derived from Windows paths (#201) - @AkosLukacs
+- **Corrupted Index Recovery**: Write `index.gob` atomically, and quarantine an already-truncated index to `index.gob.corrupt` instead of failing forever with `unexpected EOF` (#269) - @rusel95
+- **Postgres Embedding Cache Scoping**: Scope the content-hash cache by project and by embedder identity (provider/model/dimensions/endpoint), preventing cross-project and cross-model vector reuse (#252, closes #249 and #251) - @3em0
+- **OpenAI 300k Token Limit**: Detect the API's `maximum request size` error and recursively split the batch until it fits, instead of failing the whole indexing run (#226, closes #214) - @p1ng0o
+- **Workspace Document Scoping**: Scope `projectPrefixStore.ListDocuments` to the current project, fixing wildly inflated "files removed" counts and thousands of pointless store roundtrips on every workspace scan (#263) - @kryptt
+- **Agent Skill Accuracy**: Replace absolute "never use grep" instructions with a recall-safe combination, since semantic search returns a ranking rather than an exhaustive result set (#272) - @rusel95
+- **Nix Package Build**: Add `git` and `nodejs` to `nativeCheckInputs` in the flake, so the test phase no longer fails with `exec: "git": executable file not found in $PATH` (closes #244)
+
+### Performance
+
+- **Faster Watcher Startup**: Parallelize file-change detection and replace `filepath.Walk` with `WalkDir` in the watcher, cutting restart time on large repositories (#277) - @Slicit
+
+### Changed
+
+- **Go 1.25 Required to Build**: `qdrant/go-client` 1.19.0, `pgvector-go` 0.4.1 and `pgx/v5` 5.10.0 all require Go 1.25, so building grepai from source now needs Go 1.25 or later. Installing a released binary is unaffected. The CI matrix and `golangci-lint` (pinned to v2.13.2) were aligned accordingly (#284, #286, #287)
+
+### Dependencies
+
+- Bump `github.com/qdrant/go-client` from 1.17.1 to 1.19.0 (#253)
+- Bump `github.com/pgvector/pgvector-go` from 0.3.0 to 0.4.1 (#254)
+- Bump `github.com/jackc/pgx/v5` from 5.8.0 to 5.10.0 (#228)
+- Bump `github.com/fsnotify/fsnotify` from 1.9.0 to 1.10.1 (#238)
+- Bump `actions/checkout` from 6 to 7 (#267), `codecov/codecov-action` from 5 to 7 (#265), `actions/upload-pages-artifact` from 4 to 5 (#227), `actions/deploy-pages` from 4 to 5 (#208)
 
 ## [0.35.0] - 2026-03-16
 
@@ -644,7 +678,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/yoanbernabeu/grepai/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/yoanbernabeu/grepai/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/yoanbernabeu/grepai/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/yoanbernabeu/grepai/compare/v0.32.1...v0.33.0
