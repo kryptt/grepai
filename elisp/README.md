@@ -3,7 +3,7 @@
 Vendored copy of [Wilfred/tree-sitter-elisp](https://github.com/Wilfred/tree-sitter-elisp).
 
 - **Source:** https://github.com/Wilfred/tree-sitter-elisp
-- **Commit:** `29b4e49275f4a947ce17c8533bc20a1f97768c70`
+- **Commit:** `3a8f590258404ae955d46149edaaa5028078c6bc`
 - **License:** MIT (see `LICENSE`)
 
 The `smacker/go-tree-sitter` repo does not ship an elisp grammar, so we

@@ -703,19 +703,9 @@ func (e *TreeSitterExtractor) walkNodeForReferences(node *sitter.Node, content [
 	case ".fs", ".fsx", ".fsi":
 		e.walkFSharpCalls(node, nodeType, content, filePath, refs)
 	default:
-		if nodeType == "call_expression" || nodeType == "invocation_expression" {
-			funcNode := node.ChildByFieldName("function")
-			if funcNode == nil {
-				funcNode = node.ChildByFieldName("expression")
-			}
-			if funcNode != nil {
-				name := funcNode.Content(content)
-				if idx := strings.LastIndex(name, "."); idx >= 0 {
-					name = name[idx+1:]
-				}
-
-				caller := e.findContainingFunction(node, content, ext)
-
+		spec := langSpecByExt(ext)
+		if containsString(callNodesFor(spec), nodeType) {
+			if name := baseSymbolName(calleeExpression(node, content, calleeFieldsFor(spec))); name != "" {
 				*refs = append(*refs, Reference{
 					SymbolName: name,
 					Kind:       RefKindCall,
@@ -723,7 +713,7 @@ func (e *TreeSitterExtractor) walkNodeForReferences(node *sitter.Node, content [
 					Line:       int(node.StartPoint().Row) + 1,
 					Column:     int(node.StartPoint().Column),
 					Context:    truncateContext(string(content[node.StartByte():node.EndByte()])),
-					CallerName: caller,
+					CallerName: e.findContainingFunction(node, content, ext),
 					CallerFile: filePath,
 				})
 			}
@@ -938,11 +928,10 @@ func (e *TreeSitterExtractor) findContainingFunction(node *sitter.Node, content 
 				}
 			}
 		default:
-			switch parent.Type() {
-			case "function_declaration", "method_declaration", "constructor_declaration", "function_definition", "local_function_statement":
-				nameNode := parent.ChildByFieldName("name")
-				if nameNode != nil {
-					return nameNode.Content(content)
+			spec := langSpecByExt(ext)
+			if containsString(functionNodesFor(spec), parent.Type()) {
+				if name := functionNodeName(parent, content, functionNameFieldsFor(spec)); name != "" {
+					return name
 				}
 			}
 		}
@@ -980,4 +969,102 @@ func truncateContext(s string) string {
 		s = s[:100] + "..."
 	}
 	return s
+}
+
+// containsString reports whether needle appears in haystack. The slices here
+// are a handful of node-type strings, so a linear scan is the whole story.
+func containsString(haystack []string, needle string) bool {
+	for _, h := range haystack {
+		if h == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// calleeExpression returns the source text of the expression being called by
+// node. It tries each field in order and concatenates every child carrying
+// that field — Lua's `t.helper(1)` is three sibling `prefix` children — then
+// falls back to the first named child for grammars whose call node has no
+// fields at all (Kotlin, Swift).
+func calleeExpression(node *sitter.Node, content []byte, fields []string) string {
+	for _, field := range fields {
+		var parts []string
+		for i := 0; i < int(node.ChildCount()); i++ {
+			if node.FieldNameForChild(i) == field {
+				parts = append(parts, node.Child(i).Content(content))
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "")
+		}
+	}
+	if first := node.NamedChild(0); first != nil {
+		return first.Content(content)
+	}
+	return ""
+}
+
+// baseSymbolName strips any receiver or namespace qualification from a called
+// expression: `other.helper` → `helper`, `foo::bar` → `bar`, `p->m` → `m`.
+// Anything with whitespace or a newline in it is not a plain callee (a
+// computed callee, a multi-line expression) and is dropped.
+func baseSymbolName(expr string) string {
+	expr = strings.TrimSpace(expr)
+	if expr == "" || strings.ContainsAny(expr, " \t\n\r()[]{}") {
+		return ""
+	}
+	for _, sep := range []string{"::", "->", ".", ":"} {
+		if idx := strings.LastIndex(expr, sep); idx >= 0 {
+			expr = expr[idx+len(sep):]
+		}
+	}
+	return expr
+}
+
+// functionNodeName resolves the name of a function-like node. It tries each
+// field in order, descending for the first identifier-shaped node beneath it
+// (C and C++ bury the name under a function_declarator), and falls back to the
+// node's first named child for grammars that expose no name field at all.
+func functionNodeName(node *sitter.Node, content []byte, fields []string) string {
+	for _, field := range fields {
+		if child := node.ChildByFieldName(field); child != nil {
+			if name := identifierUnder(child, content); name != "" {
+				return name
+			}
+		}
+	}
+	if first := node.NamedChild(0); first != nil {
+		return identifierUnder(first, content)
+	}
+	return ""
+}
+
+// identifierUnder returns node's text when node is an identifier-shaped leaf,
+// otherwise the first such node beneath it.
+func identifierUnder(node *sitter.Node, content []byte) string {
+	if isIdentifierNodeType(node.Type()) {
+		return node.Content(content)
+	}
+	for i := 0; i < int(node.NamedChildCount()); i++ {
+		if name := identifierUnder(node.NamedChild(i), content); name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
+// isIdentifierNodeType covers the identifier node names used across the
+// compiled-in grammars: `identifier`, `simple_identifier`, `type_identifier`,
+// `field_identifier`, `property_identifier`, plus PHP's `name`, Bash's
+// `word`/`command_name` and Emacs Lisp's `symbol`.
+func isIdentifierNodeType(nodeType string) bool {
+	if strings.HasSuffix(nodeType, "identifier") {
+		return true
+	}
+	switch nodeType {
+	case "name", "word", "command_name", "symbol":
+		return true
+	}
+	return false
 }

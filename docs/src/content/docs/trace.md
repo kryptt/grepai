@@ -133,22 +133,45 @@ extractor the answer actually came from, not the flag you passed.
 
 ### Supported Languages
 
-| Language | Extensions | Extraction Quality |
-|----------|------------|-------------------|
-| Go | `.go` | Excellent |
-| TypeScript | `.ts`, `.tsx` | Excellent |
-| JavaScript | `.js`, `.jsx` | Excellent |
-| Python | `.py` | Good |
-| PHP | `.php` | Good |
-| Lua | `.lua` | Good |
-| Java | `.java` | Good |
-| C | `.c`, `.h` | Good |
-| C++ | `.cpp`, `.hpp`, `.cc`, `.cxx`, `.hxx` | Good |
-| Zig | `.zig` | Good |
-| Rust | `.rs` | Good |
-| C# | `.cs` | Good |
-| F# | `.fs`, `.fsx`, `.fsi` | Good |
-| Pascal/Delphi | `.pas`, `.dpr` | Good |
+Every extension below is extracted by default — `trace.enabled_languages` in
+`.grepai/config.yaml` ships covering all of them. "Call graph" says whether
+`trace callers` / `trace callees` work for the language, or whether it gets
+symbol extraction only.
+
+| Language | Extensions | Symbols | Call graph |
+|----------|------------|---------|------------|
+| Go | `.go` | tree-sitter | yes |
+| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` | tree-sitter | yes |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | tree-sitter | yes |
+| Python | `.py` | tree-sitter | yes |
+| PHP | `.php` | tree-sitter | yes |
+| C# | `.cs` | tree-sitter | yes |
+| F# | `.fs`, `.fsx`, `.fsi` | tree-sitter | yes |
+| Ruby | `.rb` | tree-sitter | yes (parenthesized or receiver calls only) |
+| Rust | `.rs` | tree-sitter | yes |
+| Java | `.java` | tree-sitter | yes |
+| Scala | `.scala`, `.sc`, `.mill` | tree-sitter | yes |
+| C | `.c`, `.h` | tree-sitter | yes |
+| C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` | tree-sitter | yes |
+| Bash | `.sh`, `.bash`, `.zsh` | tree-sitter | yes (every command counts as a call) |
+| Lua | `.lua` | tree-sitter | yes |
+| Kotlin | `.kt`, `.kts` | tree-sitter | yes |
+| Swift | `.swift` | tree-sitter | yes |
+| SQL | `.sql` | tree-sitter | no |
+| Protobuf | `.proto` | tree-sitter | no |
+| HCL / Terraform | `.hcl`, `.tf` | tree-sitter | no |
+| Elm | `.elm` | tree-sitter | no |
+| TOML | `.toml` | tree-sitter | no |
+| Emacs Lisp | `.el` | tree-sitter | no |
+| Vue | `.vue` | regex | no |
+| Zig | `.zig` | regex | limited |
+| Pascal/Delphi | `.pas`, `.dpr` | regex | limited |
+
+Languages marked "no" for the call graph are either declarative (SQL, HCL,
+Protobuf, TOML, Elm) or, in the case of Emacs Lisp, use a syntax where a call
+is indistinguishable from `if`/`let`/`when` — extracting them would be mostly
+false positives. They still contribute symbol definitions, so `grepai search`
+and symbol lookup work.
 
 ### JSON Output
 
