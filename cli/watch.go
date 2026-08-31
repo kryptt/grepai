@@ -1024,6 +1024,9 @@ func watchProjectWithEventObserver(ctx context.Context, projectRoot string, emb 
 	defer symbolStore.Close()
 
 	extractor := buildSymbolExtractor(cfg.Trace.Mode, projectRoot)
+	// Stamp the index with the mode that produced it so `grepai trace
+	// --mode X` can tell whether it has to re-extract.
+	symbolStore.SetExtractorMode(extractor.Mode())
 
 	// Initialize RPG if enabled.
 	var rpgEncoder *rpg.RPGEncoder
@@ -2801,6 +2804,7 @@ func initializeWorkspaceRuntime(ctx context.Context, ws *config.Workspace, proje
 	if err := symbolStore.Load(ctx); err != nil {
 		log.Printf("Warning: failed to load symbol index for %s: %v", project.Path, err)
 	}
+	symbolStore.SetExtractorMode(extractor.Mode())
 
 	tracedLanguages := projectCfg.Trace.EnabledLanguages
 	if len(tracedLanguages) == 0 {
