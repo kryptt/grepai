@@ -188,7 +188,7 @@ func TestExtractReferences_CallGraphPerLanguage(t *testing.T) {
 // none. Adding a grammar without wiring its call nodes then shows up here
 // rather than silently returning an empty call graph to users.
 func TestSupportsCallGraph_MatchesRegistry(t *testing.T) {
-	declarative := []string{".sql", ".proto", ".hcl", ".tf", ".elm", ".toml", ".el"}
+	declarative := []string{".sql", ".proto", ".hcl", ".tf", ".elm", ".toml", ".el", ".ex", ".exs"}
 	for _, ext := range declarative {
 		if SupportsCallGraph(ext) {
 			t.Errorf("SupportsCallGraph(%q) = true, want false: %s has no call-graph node types", ext, ext)
@@ -212,6 +212,10 @@ func TestExtractReferences_DeclarativeLanguagesYieldNoCalls(t *testing.T) {
 		{".sql", "CREATE TABLE t (id INT);\nSELECT count(*) FROM t;\n"},
 		{".toml", "[server]\nhost = \"localhost\"\n"},
 		{".el", "(defun helper () 1)\n\n(defun run ()\n  (helper))\n"},
+		// Elixir: `def`/`defmodule` and a real call share the `call` node
+		// type, so nothing is emitted rather than a reference to "def" per
+		// definition. See the elixir LangSpec.
+		{".ex", "defmodule A do\n  def helper, do: 1\n  def run do\n    helper()\n  end\nend\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.ext, func(t *testing.T) {

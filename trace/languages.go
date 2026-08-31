@@ -227,6 +227,11 @@ var treeSitterLanguages = []LangSpec{
 	{Name: "protobuf", Extensions: []string{".proto"}, GetLanguage: protobuf.GetLanguage, Queries: protobufQueries},
 	{Name: "hcl", Extensions: []string{".hcl", ".tf"}, GetLanguage: hcl.GetLanguage, Queries: hclQueries},
 	{Name: "elm", Extensions: []string{".elm"}, GetLanguage: elm.GetLanguage, Queries: elmQueries},
+	// Elixir is homoiconic: `defmodule`, `def` and an ordinary call are all
+	// the same `call` node, distinguished only by the identifier in their
+	// `target` field. Wiring CallNodes here would emit a reference to "def"
+	// for every definition and attribute every call to a caller named
+	// "def", so Elixir gets symbols only until that is handled properly.
 	{Name: "elixir", Extensions: []string{".ex", ".exs"}, GetLanguage: elixir.GetLanguage, Queries: elixirQueries},
 	{Name: "toml", Extensions: []string{".toml"}, GetLanguage: toml.GetLanguage, Queries: tomlQueries},
 
