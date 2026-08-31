@@ -815,11 +815,17 @@ func runInitialScan(ctx context.Context, idx *indexer.Indexer, scanner *indexer.
 			continue
 		}
 
-		// Skip files that are unchanged since the last index run and already tracked.
+		// Skip files that are unchanged since the last index run, already
+		// tracked, and extracted by the current extractor version. The
+		// mtime fast-path must also check the extractor signature —
+		// otherwise an upgrade that ships better extraction never
+		// re-processes files whose source didn't change.
 		if !lastIndexTime.IsZero() {
 			fileModTime := time.Unix(file.ModTime, 0)
 			if (fileModTime.Before(lastIndexTime) || fileModTime.Equal(lastIndexTime)) && symbolStore.IsFileIndexed(file.Path) {
-				continue
+				if v, ok := symbolStore.GetFileExtractorVersion(file.Path); ok && v == extractor.Version() {
+					continue
+				}
 			}
 		}
 
