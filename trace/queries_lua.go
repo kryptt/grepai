@@ -2,9 +2,10 @@ package trace
 
 // luaQueries handles the three Lua function-definition shapes the
 // tree-sitter-lua grammar emits:
-//   local function name() ...   -> function_statement with identifier child
-//   function name() ...          -> function_statement with function_name child
-//   function M.method() ...      -> function_statement with function_name (dotted)
+//
+//	local function name() ...   -> function_statement with identifier child
+//	function name() ...          -> function_statement with function_name child
+//	function M.method() ...      -> function_statement with function_name (dotted)
 //
 // For the dotted form @name captures the whole qualified name (e.g.
 // "M.method"); downstream tooling can split on the dot.

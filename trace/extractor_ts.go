@@ -858,9 +858,7 @@ func extractJSRootFromNodeContent(objExpr string) string {
 	if objExpr == "" {
 		return ""
 	}
-	if strings.HasPrefix(objExpr, "this.") {
-		objExpr = objExpr[len("this."):]
-	}
+	objExpr = strings.TrimPrefix(objExpr, "this.")
 	for i, r := range objExpr {
 		if r == '.' || r == '[' || r == '(' || r == ' ' || r == '\t' || r == '\n' {
 			if i == 0 {

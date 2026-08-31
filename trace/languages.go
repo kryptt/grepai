@@ -45,9 +45,9 @@ import (
 // languages (Go, JS/JSX, TS/TSX, Python, PHP, C#, F#) use.
 type LangSpec struct {
 	Name        string
-	Extensions  []string                 // lowercase, leading dot
-	GetLanguage func() *sitter.Language  // tree-sitter grammar constructor
-	Queries     []NamedQuery             // optional; nil ⇒ use walk-based path
+	Extensions  []string                // lowercase, leading dot
+	GetLanguage func() *sitter.Language // tree-sitter grammar constructor
+	Queries     []NamedQuery            // optional; nil ⇒ use walk-based path
 }
 
 // NamedQuery binds a tree-sitter S-expression query string to a free-form
@@ -69,7 +69,7 @@ type NamedQuery struct {
 // required.
 //
 // The first block contains the legacy nine — they keep the existing
-// hand-walked extractGoSymbol/etc. behaviour. PR 2 adds the second block
+// hand-walked extractGoSymbol/etc. behavior. PR 2 adds the second block
 // of languages, all on the query-based path.
 var treeSitterLanguages = []LangSpec{
 	// --- Legacy walk-based languages (extractor_ts.go has hand-written walks).

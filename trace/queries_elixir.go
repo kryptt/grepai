@@ -4,16 +4,16 @@ package trace
 // against the leading identifier of a `call` node. The grammar parses
 // every macro invocation (def/defp/defmodule/...) as `call` with shape:
 //
-//   call
-//     identifier   ← the macro name ("def", "defmodule", …)
-//     arguments    ← positional args (the defined name lives here)
-//     do_block?    ← optional body
+//	call
+//	  identifier   ← the macro name ("def", "defmodule", …)
+//	  arguments    ← positional args (the defined name lives here)
+//	  do_block?    ← optional body
 //
 // The defined name is buried in `arguments` and its node type varies:
 //
-//   defmodule Greeter do ...  → arguments > alias
-//   def hello(name), do: ...  → arguments > call > identifier  (parens form)
-//   def hello, do: ...        → arguments > identifier         (paren-less form)
+//	defmodule Greeter do ...  → arguments > alias
+//	def hello(name), do: ...  → arguments > call > identifier  (parens form)
+//	def hello, do: ...        → arguments > identifier         (paren-less form)
 //
 // We use anchored captures (`.`) plus #match? predicates to map each
 // shape to a precise Kind.
